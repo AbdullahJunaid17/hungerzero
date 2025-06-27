@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "55482479939",
+    "project_id": "hungerzero-17",
+    "storage_bucket": "hungerzero-17.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:55482479939:android:d2abd9eb89e9d039936bf6",
+        "android_client_info": {
+          "package_name": "com.example.hungerzero"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFLlqqEHbRtnRnRxVqhz_rYDbsz42oHpg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
