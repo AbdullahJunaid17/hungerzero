@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:hungerzero/community.dart';
+import 'package:hungerzero/current.dart';
 import 'package:hungerzero/dashboard_r.dart';
 import 'package:hungerzero/form_r.dart';
 import 'package:hungerzero/help_r.dart';
 import 'package:hungerzero/history_r.dart';
 import 'package:hungerzero/impact_r.dart';
 import 'package:hungerzero/loginpage.dart';
+import 'package:hungerzero/notification.dart';
+import 'package:hungerzero/previous.dart';
 import 'package:hungerzero/settings_r.dart';
 import 'package:hungerzero/tax.dart';
 import 'package:intl/intl.dart';
@@ -32,7 +36,12 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationsScreen()),
+              );
+            },
           ),
         ],
       ),
@@ -558,54 +567,21 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
   void _navigateToCurrentDonations(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder:
-            (context) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Current Donations'),
-                backgroundColor: Colors.blue,
-              ),
-              body: const Center(
-                child: Text('Current donations will be shown here'),
-              ),
-            ),
-      ),
+      MaterialPageRoute(builder: (context) => const CurrentDonationsScreen()),
     );
   }
 
   void _navigateToPreviousDonations(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder:
-            (context) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Previous Donations'),
-                backgroundColor: Colors.green,
-              ),
-              body: const Center(
-                child: Text('Previous donations will be shown here'),
-              ),
-            ),
-      ),
+      MaterialPageRoute(builder: (context) => const PreviousDonationsScreen()),
     );
   }
 
   void _navigateToCommunityFeed(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder:
-            (context) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Community Feed'),
-                backgroundColor: Colors.purple,
-              ),
-              body: const Center(
-                child: Text('Community feed will be shown here'),
-              ),
-            ),
-      ),
+      MaterialPageRoute(builder: (context) => const CommunityFeedScreen()),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:hungerzero/chat.dart';
 
 class NGODonationDetailsPage extends StatelessWidget {
   final String restaurantName;
@@ -171,7 +172,19 @@ class NGODonationDetailsPage extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
-                            // Chat navigation will be added later
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => ChatScreen(
+                                      donationId: 'mock_donation_123',
+                                      currentUserType: 'ngo',
+                                      otherPartyName: 'Restaurant Name',
+                                      otherPartyImage:
+                                          'https://example.com/restaurant.jpg',
+                                    ),
+                              ),
+                            );
                           },
                         ),
                       ),
