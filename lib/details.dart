@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:hungerzero/chat.dart';
+import 'package:hungerzero/requestform.dart';
 
 class NGODonationDetailsPage extends StatelessWidget {
   final String restaurantName;
@@ -201,7 +202,17 @@ class NGODonationDetailsPage extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
-                            // Pickup request navigation will be added later
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => NGORequestFormScreen(
+                                      restaurantName: restaurantName,
+                                      foodItems: foodItems,
+                                      imageUrl: imageUrl,
+                                    ),
+                              ),
+                            );
                           },
                         ),
                       ),

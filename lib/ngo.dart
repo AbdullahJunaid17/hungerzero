@@ -139,7 +139,14 @@ class _NGOHomePageState extends State<NGOHomePage> {
                   'Volunteers',
                   Icons.people_alt,
                   Colors.purple,
-                  () {},
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => NGOVolunteersScreen(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
