@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:hungerzero/ngo.dart'; // Import your NGO home page
+import 'package:hungerzero/ngo.dart';
 
 class NGORequestFormScreen extends StatefulWidget {
   final String restaurantName;
@@ -25,29 +25,68 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
   final TextEditingController _instructionsController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  bool _isSubmitting = false;
+  String? _selectedVehicle;
 
   Future<void> _selectDateTime(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 30)),
-    );
-
-    if (pickedDate != null) {
-      final TimeOfDay? pickedTime = await showTimePicker(
+    try {
+      final DateTime? pickedDate = await showDatePicker(
         context: context,
-        initialTime: TimeOfDay.now(),
+        initialDate: DateTime.now(),
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 30)),
       );
 
-      if (pickedTime != null) {
-        setState(() {
-          _selectedDate = pickedDate;
-          _selectedTime = pickedTime;
-          _pickupTimeController.text =
-              '${DateFormat('MMM d, yyyy').format(pickedDate)} at ${pickedTime.format(context)}';
-        });
+      if (pickedDate != null) {
+        final TimeOfDay? pickedTime = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.now(),
+        );
+
+        if (pickedTime != null) {
+          setState(() {
+            _selectedDate = pickedDate;
+            _selectedTime = pickedTime;
+            _pickupTimeController.text =
+                '${DateFormat('MMM d, yyyy').format(pickedDate)} at ${pickedTime.format(context)}';
+          });
+        }
       }
+    } catch (e) {
+      _showErrorMessage('Failed to select date/time: ${e.toString()}');
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedVehicle == null) {
+      _showErrorMessage('Please select a vehicle type');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 2));
+
+      // If successful, show confirmation
+      _showSuccessDialog(context);
+    } catch (e) {
+      _showErrorMessage('Submission failed: ${e.toString()}');
+    } finally {
+      setState(() => _isSubmitting = false);
     }
   }
 
@@ -65,7 +104,7 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -136,7 +175,10 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
                       prefixIcon: const Icon(Icons.calendar_today),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.edit),
-                        onPressed: () => _selectDateTime(context),
+                        onPressed:
+                            _isSubmitting
+                                ? null
+                                : () => _selectDateTime(context),
                       ),
                     ),
                     readOnly: true,
@@ -146,7 +188,8 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
                       }
                       return null;
                     },
-                    onTap: () => _selectDateTime(context),
+                    onTap:
+                        _isSubmitting ? null : () => _selectDateTime(context),
                   ),
                   const SizedBox(height: 16),
 
@@ -168,8 +211,12 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
                       if (double.tryParse(value) == null) {
                         return 'Please enter valid number';
                       }
+                      if (double.parse(value) <= 0) {
+                        return 'Amount must be greater than 0';
+                      }
                       return null;
                     },
+                    enabled: !_isSubmitting,
                   ),
                   const SizedBox(height: 16),
 
@@ -184,6 +231,7 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
                       prefixIcon: const Icon(Icons.note_add),
                     ),
                     maxLines: 3,
+                    enabled: !_isSubmitting,
                   ),
                   const SizedBox(height: 24),
 
@@ -208,11 +256,7 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          _showConfirmationDialog(context);
-                        }
-                      },
+                      onPressed: _isSubmitting ? null : _submitForm,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepOrange,
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -220,10 +264,22 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
-                        'Submit Request',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      child:
+                          _isSubmitting
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : const Text(
+                                'Submit Request',
+                                style: TextStyle(fontSize: 16),
+                              ),
                     ),
                   ),
                 ],
@@ -264,10 +320,18 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
   Widget _buildVehicleChip(String label) {
     return ChoiceChip(
       label: Text(label),
-      selected: false,
-      onSelected: (selected) {},
+      selected: _selectedVehicle == label,
+      onSelected:
+          _isSubmitting
+              ? null
+              : (selected) {
+                setState(() => _selectedVehicle = selected ? label : null);
+              },
       selectedColor: Colors.deepOrange.withOpacity(0.2),
-      labelStyle: TextStyle(color: Colors.deepOrange),
+      labelStyle: TextStyle(
+        color: _selectedVehicle == label ? Colors.deepOrange : Colors.black,
+      ),
+
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: Colors.deepOrange),
@@ -287,6 +351,7 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
               children: [
                 Text('Pickup Time: ${_pickupTimeController.text}'),
                 Text('Amount: ${_amountController.text} kg'),
+                Text('Vehicle: $_selectedVehicle'),
                 if (_instructionsController.text.isNotEmpty)
                   Text('Instructions: ${_instructionsController.text}'),
               ],
@@ -299,7 +364,7 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  _showSuccessDialog(context);
+                  _submitForm();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepOrange,
@@ -329,7 +394,6 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
               Center(
                 child: ElevatedButton(
                   onPressed: () {
-                    // Navigate to NGO Home Page
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (context) => NGOHomePage()),
@@ -345,5 +409,13 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
             ],
           ),
     );
+  }
+
+  @override
+  void dispose() {
+    _pickupTimeController.dispose();
+    _amountController.dispose();
+    _instructionsController.dispose();
+    super.dispose();
   }
 }

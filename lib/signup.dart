@@ -13,6 +13,7 @@ class _SignupPageState extends State<SignupPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _acceptedTerms = false;
 
   // Restaurant Controllers
   final _restaurantNameController = TextEditingController();
@@ -49,26 +50,50 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  void _handleSignup() {
+  Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedTerms) {
+      _showErrorMessage('Please accept the terms and conditions');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
-    // Simulate signup process
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${_selectedRole} account created successfully!'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-      Navigator.pop(context);
-    });
+    try {
+      // Simulate signup process
+      await Future.delayed(const Duration(seconds: 2));
+
+      _showSuccessMessage('${_selectedRole} account created successfully!');
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _showErrorMessage('Signup failed: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   InputDecoration _buildInputDecoration(String label, IconData icon) {
@@ -86,6 +111,7 @@ class _SignupPageState extends State<SignupPage> {
       ),
       filled: true,
       fillColor: Colors.orange.shade50,
+      errorMaxLines: 2,
     );
   }
 
@@ -100,7 +126,9 @@ class _SignupPageState extends State<SignupPage> {
               'Owner/Manager Name',
               Icons.person,
             ),
-            validator: (value) => value!.isEmpty ? 'Required' : null,
+            validator:
+                (value) => value!.isEmpty ? 'Please enter owner name' : null,
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 20),
 
@@ -113,12 +141,13 @@ class _SignupPageState extends State<SignupPage> {
             ),
             keyboardType: TextInputType.number,
             validator: (value) {
-              if (value!.isEmpty) return 'Required';
+              if (value!.isEmpty) return 'FSSAI number is required';
               if (!RegExp(r'^[0-9]{14}$').hasMatch(value)) {
                 return 'Must be 14 digits';
               }
               return null;
             },
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 20),
 
@@ -129,7 +158,10 @@ class _SignupPageState extends State<SignupPage> {
               'Operating Hours (e.g. 9AM-10PM)',
               Icons.access_time,
             ),
-            validator: (value) => value!.isEmpty ? 'Required' : null,
+            validator:
+                (value) =>
+                    value!.isEmpty ? 'Please enter operating hours' : null,
+            enabled: !_isLoading,
           ),
         ],
       );
@@ -143,7 +175,10 @@ class _SignupPageState extends State<SignupPage> {
               'Representative Name',
               Icons.person,
             ),
-            validator: (value) => value!.isEmpty ? 'Required' : null,
+            validator:
+                (value) =>
+                    value!.isEmpty ? 'Please enter representative name' : null,
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 20),
 
@@ -154,7 +189,10 @@ class _SignupPageState extends State<SignupPage> {
               'NGO Registration Number',
               Icons.assignment_ind,
             ),
-            validator: (value) => value!.isEmpty ? 'Required' : null,
+            validator:
+                (value) =>
+                    value!.isEmpty ? 'Registration number is required' : null,
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 20),
 
@@ -165,7 +203,9 @@ class _SignupPageState extends State<SignupPage> {
               'Areas of Operation (e.g. Mumbai, Delhi)',
               Icons.map,
             ),
-            validator: (value) => value!.isEmpty ? 'Required' : null,
+            validator:
+                (value) => value!.isEmpty ? 'Please enter service areas' : null,
+            enabled: !_isLoading,
           ),
         ],
       );
@@ -268,11 +308,19 @@ class _SignupPageState extends State<SignupPage> {
                                     child: Text(role),
                                   );
                                 }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() => _selectedRole = value);
-                              }
-                            },
+                            onChanged:
+                                _isLoading
+                                    ? null
+                                    : (value) {
+                                      if (value != null) {
+                                        setState(() => _selectedRole = value);
+                                      }
+                                    },
+                            validator:
+                                (value) =>
+                                    value == null
+                                        ? 'Please select a role'
+                                        : null,
                           ),
                           const SizedBox(height: 20),
 
@@ -289,7 +337,11 @@ class _SignupPageState extends State<SignupPage> {
                               Icons.business,
                             ),
                             validator:
-                                (value) => value!.isEmpty ? 'Required' : null,
+                                (value) =>
+                                    value!.isEmpty
+                                        ? 'Please enter ${_selectedRole == 'Restaurant' ? 'restaurant' : 'NGO'} name'
+                                        : null,
+                            enabled: !_isLoading,
                           ),
                           const SizedBox(height: 20),
 
@@ -302,14 +354,15 @@ class _SignupPageState extends State<SignupPage> {
                               Icons.email,
                             ),
                             validator: (value) {
-                              if (value!.isEmpty) return 'Required';
+                              if (value!.isEmpty) return 'Email is required';
                               if (!RegExp(
                                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                               ).hasMatch(value)) {
-                                return 'Invalid email';
+                                return 'Please enter a valid email';
                               }
                               return null;
                             },
+                            enabled: !_isLoading,
                           ),
                           const SizedBox(height: 20),
 
@@ -322,12 +375,14 @@ class _SignupPageState extends State<SignupPage> {
                               Icons.phone,
                             ),
                             validator: (value) {
-                              if (value!.isEmpty) return 'Required';
+                              if (value!.isEmpty)
+                                return 'Phone number is required';
                               if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
                                 return 'Must be 10 digits';
                               }
                               return null;
                             },
+                            enabled: !_isLoading,
                           ),
                           const SizedBox(height: 20),
 
@@ -339,7 +394,11 @@ class _SignupPageState extends State<SignupPage> {
                               Icons.location_on,
                             ),
                             validator:
-                                (value) => value!.isEmpty ? 'Required' : null,
+                                (value) =>
+                                    value!.isEmpty
+                                        ? 'Address is required'
+                                        : null,
+                            enabled: !_isLoading,
                           ),
                           const SizedBox(height: 20),
 
@@ -358,19 +417,29 @@ class _SignupPageState extends State<SignupPage> {
                                       : Icons.visibility,
                                   color: Colors.deepOrange,
                                 ),
-                                onPressed: () {
-                                  setState(
-                                    () => _obscurePassword = !_obscurePassword,
-                                  );
-                                },
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () => setState(
+                                          () =>
+                                              _obscurePassword =
+                                                  !_obscurePassword,
+                                        ),
                               ),
                             ),
                             validator: (value) {
-                              if (value!.isEmpty) return 'Required';
+                              if (value!.isEmpty) return 'Password is required';
                               if (value.length < 8)
                                 return 'Minimum 8 characters';
+                              if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                                return 'At least one uppercase letter';
+                              }
+                              if (!RegExp(r'[0-9]').hasMatch(value)) {
+                                return 'At least one number';
+                              }
                               return null;
                             },
+                            enabled: !_isLoading,
                           ),
                           const SizedBox(height: 20),
 
@@ -389,13 +458,14 @@ class _SignupPageState extends State<SignupPage> {
                                       : Icons.visibility,
                                   color: Colors.deepOrange,
                                 ),
-                                onPressed: () {
-                                  setState(
-                                    () =>
-                                        _obscureConfirmPassword =
-                                            !_obscureConfirmPassword,
-                                  );
-                                },
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () => setState(
+                                          () =>
+                                              _obscureConfirmPassword =
+                                                  !_obscureConfirmPassword,
+                                        ),
                               ),
                             ),
                             validator: (value) {
@@ -404,27 +474,43 @@ class _SignupPageState extends State<SignupPage> {
                               }
                               return null;
                             },
+                            enabled: !_isLoading,
                           ),
                           const SizedBox(height: 20),
 
                           // Role-specific fields
                           _buildRoleSpecificFields(),
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 20),
 
                           // Terms Checkbox
                           Row(
                             children: [
                               Checkbox(
-                                value: true,
-                                onChanged: (v) {},
+                                value: _acceptedTerms,
+                                onChanged:
+                                    _isLoading
+                                        ? null
+                                        : (value) => setState(
+                                          () => _acceptedTerms = value ?? false,
+                                        ),
                                 activeColor: Colors.deepOrange,
                               ),
                               const Text('I agree to the '),
                               TextButton(
-                                onPressed: () {},
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () {
+                                          // Show terms dialog
+                                        },
                                 child: Text(
                                   'Terms & Conditions',
-                                  style: TextStyle(color: Colors.deepOrange),
+                                  style: TextStyle(
+                                    color:
+                                        _isLoading
+                                            ? Colors.grey
+                                            : Colors.deepOrange,
+                                  ),
                                 ),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.zero,
@@ -450,9 +536,13 @@ class _SignupPageState extends State<SignupPage> {
                               ),
                               child:
                                   _isLoading
-                                      ? const CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 3,
+                                      ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 3,
+                                        ),
                                       )
                                       : const Text(
                                         'SIGN UP',
@@ -480,11 +570,11 @@ class _SignupPageState extends State<SignupPage> {
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                     GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: _isLoading ? null : () => Navigator.pop(context),
                       child: Text(
                         'Login',
                         style: TextStyle(
-                          color: Colors.deepOrange,
+                          color: _isLoading ? Colors.grey : Colors.deepOrange,
                           fontWeight: FontWeight.bold,
                           decoration: TextDecoration.underline,
                         ),

@@ -15,8 +15,8 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
   int _currentStep = 0;
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
-  List<XFile> _imageFiles =
-      []; // Fixed: Remove nullable and initialize properly
+  List<XFile> _imageFiles = [];
+  bool _isSubmitting = false;
 
   // Form data
   String _foodType = 'Cooked Meals';
@@ -24,7 +24,19 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
   DateTime? _pickupTime;
   String _specialInstructions = '';
   bool _hasAllergens = false;
-  bool _isSubmitting = false;
+
+  void showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,143 +55,144 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body:
-          _isSubmitting
-              ? _buildSuccessScreen()
-              : Form(
-                // Fixed: Wrap the entire form content in Form widget
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Animated Step Progress Indicator
-                    Container(
-                      height: 4,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: List.generate(4, (index) {
-                          return Expanded(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color:
-                                    index <= _currentStep
-                                        ? Colors.deepOrange
-                                        : Colors.grey[300],
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-
-                    // Step Content
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.light(
-                              primary: Colors.deepOrange,
-                            ),
-                            inputDecorationTheme: InputDecorationTheme(
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                            ),
-                          ),
-                          child: AnimatedSwitcher(
+      body: _isSubmitting
+          ? _buildSuccessScreen()
+          : Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // Step Progress Indicator
+                  Container(
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: List.generate(4, (index) {
+                        return Expanded(
+                          child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
-                            child: _buildCurrentStep(),
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: index <= _currentStep
+                                  ? Colors.deepOrange
+                                  : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
+                        );
+                      }),
+                    ),
+                  ),
+
+                  // Step Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.light(
+                            primary: Colors.deepOrange,
+                          ),
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                        ),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: _buildCurrentStep(),
                         ),
                       ),
                     ),
+                  ),
 
-                    // Navigation Buttons
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.white,
-                      child: Row(
-                        children: [
-                          if (_currentStep > 0)
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  side: const BorderSide(
-                                    color: Colors.deepOrange,
-                                  ),
-                                ),
-                                onPressed: _cancel,
-                                child: const Text(
-                                  'Back',
-                                  style: TextStyle(
-                                    color: Colors.deepOrange,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (_currentStep > 0) const SizedBox(width: 16),
+                  // Navigation Buttons
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.white,
+                    child: Row(
+                      children: [
+                        if (_currentStep > 0)
                           Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepOrange,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                side: const BorderSide(
+                                  color: Colors.deepOrange,
+                                ),
                               ),
-                              onPressed: _continue,
-                              child: Text(
-                                _currentStep == 3
-                                    ? 'Submit Donation'
-                                    : 'Continue',
-                                style: const TextStyle(
+                              onPressed: _cancel,
+                              child: const Text(
+                                'Back',
+                                style: TextStyle(
+                                  color: Colors.deepOrange,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
                                 ),
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        if (_currentStep > 0) const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepOrange,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: _isSubmitting ? null : _continue,
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _currentStep == 3
+                                        ? 'Submit Donation'
+                                        : 'Continue',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
     );
   }
 
   Widget _buildCurrentStep() {
     switch (_currentStep) {
-      case 0:
-        return _buildFoodDetailsStep();
-      case 1:
-        return _buildPickupDetailsStep();
-      case 2:
-        return _buildAdditionalInfoStep();
-      case 3:
-        return _buildReviewStep();
-      default:
-        return Container();
+      case 0: return _buildFoodDetailsStep();
+      case 1: return _buildPickupDetailsStep();
+      case 2: return _buildAdditionalInfoStep();
+      case 3: return _buildReviewStep();
+      default: return Container();
     }
   }
 
@@ -204,23 +217,13 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
             labelText: 'Food Type',
             hintText: 'Select food category',
           ),
-          items:
-              [
-                'Cooked Meals',
-                'Packaged Food',
-                'Fresh Produce',
-                'Bakery Items',
-                'Dairy Products',
-                'Other',
-              ].map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-          onChanged: (value) {
-            setState(() => _foodType = value!);
-          },
+          items: ['Cooked Meals', 'Packaged Food', 'Fresh Produce', 'Bakery Items', 'Dairy Products', 'Other']
+              .map((String value) => DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  ))
+              .toList(),
+          onChanged: (value) => setState(() => _foodType = value!),
         ),
         const SizedBox(height: 24),
         TextFormField(
@@ -231,19 +234,15 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
             hintText: 'How many servings/packages?',
           ),
           validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter quantity';
-            }
-            if (int.tryParse(value) == null || int.parse(value) <= 0) {
-              return 'Please enter a valid positive number';
-            }
+            if (value == null || value.isEmpty) return 'Required field';
+            final num = int.tryParse(value);
+            if (num == null) return 'Enter valid number';
+            if (num <= 0) return 'Must be at least 1';
+            if (num > 1000) return 'Maximum 1000 items';
             return null;
           },
-          onChanged: (value) {
-            setState(() => _quantity = int.tryParse(value) ?? 1);
-          },
+          onChanged: (value) => setState(() => _quantity = int.tryParse(value) ?? 1),
         ),
-        const SizedBox(height: 24),
       ],
     );
   }
@@ -270,31 +269,27 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
               initialDate: DateTime.now(),
               firstDate: DateTime.now(),
               lastDate: DateTime.now().add(const Duration(days: 7)),
-              builder: (context, child) {
-                return Theme(
+              builder: (context, child) => Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Colors.deepOrange,
+                  ),
+                ),
+                child: child!,
+              ),
+            );
+            if (date != null) {
+              final time = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.now(),
+                builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
                     colorScheme: const ColorScheme.light(
                       primary: Colors.deepOrange,
                     ),
                   ),
                   child: child!,
-                );
-              },
-            );
-            if (date != null) {
-              final time = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.now(),
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: Colors.deepOrange,
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
+                ),
               );
               if (time != null) {
                 setState(() {
@@ -330,9 +325,7 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
                     Text(
                       _pickupTime == null
                           ? 'Select date and time'
-                          : DateFormat(
-                            'EEE, MMM d • h:mm a',
-                          ).format(_pickupTime!),
+                          : DateFormat('EEE, MMM d • h:mm a').format(_pickupTime!),
                       style: TextStyle(
                         color: Colors.grey[800],
                         fontWeight: FontWeight.bold,
@@ -369,7 +362,6 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
             ],
           ),
         ),
-        const SizedBox(height: 24),
       ],
     );
   }
@@ -391,7 +383,7 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
         const SizedBox(height: 24),
         TextFormField(
           maxLines: 4,
-          initialValue: _specialInstructions, // Fixed: Add initial value
+          initialValue: _specialInstructions,
           decoration: const InputDecoration(
             labelText: 'Special Instructions',
             hintText: 'E.g. "Vegetarian only", "Contains nuts"',
@@ -416,43 +408,42 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
         const SizedBox(height: 16),
         _imageFiles.isEmpty
             ? GestureDetector(
-              onTap: _pickImages,
-              child: Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    width: 1.5,
-                    style: BorderStyle.solid,
+                onTap: _pickImages,
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade300,
+                      width: 1.5,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt, size: 36, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap to add photos',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.camera_alt, size: 36, color: Colors.grey[400]),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tap to add photos',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
+              )
             : Column(
-              children: [
-                SizedBox(
-                  height: 120,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _imageFiles.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
+                children: [
+                  SizedBox(
+                    height: 120,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _imageFiles.length,
+                      itemBuilder: (context, index) => Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: Stack(
                           children: [
@@ -486,48 +477,42 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Add more photos button
-                GestureDetector(
-                  onTap: _pickImages,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.deepOrange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.deepOrange.withOpacity(0.3),
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.add_photo_alternate,
-                          color: Colors.deepOrange,
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: _pickImages,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.deepOrange.withOpacity(0.3),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Add more photos',
-                          style: TextStyle(
-                            color: Colors.deepOrange,
-                            fontWeight: FontWeight.bold,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_photo_alternate, color: Colors.deepOrange),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Add more photos',
+                            style: TextStyle(
+                              color: Colors.deepOrange,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-        const SizedBox(height: 24),
+                ],
+              ),
       ],
     );
   }
@@ -541,11 +526,7 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
         Center(
           child: Column(
             children: [
-              const Icon(
-                Icons.check_circle_outline,
-                size: 60,
-                color: Colors.green,
-              ),
+              const Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
               const SizedBox(height: 16),
               Text(
                 'Review Your Donation',
@@ -574,8 +555,7 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
         ),
         _buildReviewItem(
           'Allergens',
-          _hasAllergens ? 'Contains allergens' : 'No allergens',
-        ),
+          _hasAllergens ? 'Contains allergens' : 'No allergens'),
         if (_specialInstructions.isNotEmpty)
           _buildReviewItem('Special Instructions', _specialInstructions),
         if (_imageFiles.isNotEmpty) ...[
@@ -593,24 +573,21 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _imageFiles.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      File(_imageFiles[index].path),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(_imageFiles[index].path),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         ],
-        const SizedBox(height: 24),
       ],
     );
   }
@@ -669,15 +646,13 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RestaurantHomePage(),
-                      ),
-                      (route) => false,
-                    );
-                  },
+                  onPressed: () => Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RestaurantHomePage(),
+                    ),
+                    (route) => false,
+                  ),
                   child: const Text(
                     'Back to Home',
                     style: TextStyle(
@@ -690,18 +665,16 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () {
-                  setState(() {
-                    _currentStep = 0;
-                    _isSubmitting = false;
-                    _foodType = 'Cooked Meals';
-                    _quantity = 1;
-                    _pickupTime = null;
-                    _specialInstructions = '';
-                    _hasAllergens = false;
-                    _imageFiles = [];
-                  });
-                },
+                onPressed: () => setState(() {
+                  _currentStep = 0;
+                  _isSubmitting = false;
+                  _foodType = 'Cooked Meals';
+                  _quantity = 1;
+                  _pickupTime = null;
+                  _specialInstructions = '';
+                  _hasAllergens = false;
+                  _imageFiles = [];
+                }),
                 child: const Text(
                   'Post Another Donation',
                   style: TextStyle(
@@ -751,47 +724,36 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile>? images = await _picker.pickMultiImage(
-        imageQuality: 85,
-      );
-      if (images != null && images.isNotEmpty) {
-        setState(() {
-          _imageFiles = [..._imageFiles, ...images];
-        });
+      final images = await _picker.pickMultiImage(imageQuality: 85);
+      if (images != null) {
+        if (_imageFiles.length + images.length > 5) {
+          showError("Maximum 5 photos allowed");
+          return;
+        }
+        setState(() => _imageFiles.addAll(images));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error selecting images: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showError("Failed to pick images: ${e.toString()}");
     }
   }
 
   void _removeImage(int index) {
-    setState(() {
-      _imageFiles.removeAt(index);
-    });
+    setState(() => _imageFiles.removeAt(index));
   }
 
   void _continue() {
-    // Validate current step before proceeding
-    if (_currentStep == 0) {
-      if (!_formKey.currentState!.validate()) {
-        return; // Don't proceed if validation fails
-      }
-      _formKey.currentState!.save(); // Save the form data
-    } else if (_currentStep == 1) {
-      if (_pickupTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a pickup time')),
-        );
-        return;
-      }
+    switch (_currentStep) {
+      case 0:
+        if (!_formKey.currentState!.validate()) return;
+        break;
+      case 1:
+        if (_pickupTime == null) {
+          showError("Please select pickup time");
+          return;
+        }
+        break;
     }
 
-    // Proceed to next step or submit
     if (_currentStep < 3) {
       setState(() => _currentStep += 1);
     } else {
@@ -800,19 +762,23 @@ class _DonationFormStepperState extends State<DonationFormStepper> {
   }
 
   void _cancel() {
-    if (_currentStep > 0) {
-      setState(() => _currentStep -= 1);
-    }
+    if (_currentStep > 0) setState(() => _currentStep -= 1);
   }
 
-  void _submitDonation() {
+  Future<void> _submitDonation() async {
+    if (!_formKey.currentState!.validate()) return;
+    
     setState(() => _isSubmitting = true);
 
-    // Simulate API call delay
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    });
+    try {
+      // Simulate API call delay (replace with actual Firebase calls)
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Show success state
+      setState(() => _isSubmitting = true);
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      showError("Failed to submit: ${e.toString()}");
+    }
   }
 }
