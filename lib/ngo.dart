@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hungerzero/active.dart';
 import 'package:hungerzero/dashboard_n.dart';
 import 'package:hungerzero/details.dart';
 import 'package:hungerzero/help_n.dart';
@@ -7,6 +8,8 @@ import 'package:hungerzero/impact_n.dart';
 import 'package:hungerzero/loginpage.dart';
 import 'package:hungerzero/settings_n.dart';
 import 'package:hungerzero/volunteer.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class NGOHomePage extends StatefulWidget {
@@ -19,42 +22,166 @@ class NGOHomePage extends StatefulWidget {
 class _NGOHomePageState extends State<NGOHomePage> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
+  late Future<DocumentSnapshot> _ngoDataFuture;
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+
+  // Profile tab controllers
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  late TextEditingController _addressController;
+  late TextEditingController _areasController;
+  late TextEditingController _regController;
+  late TextEditingController _repController;
+  bool _notificationsEnabled = true;
+  bool _acceptAllDonations = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final userId = _auth.currentUser?.uid;
+
+    // Initialize controllers
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
+    _addressController = TextEditingController();
+    _areasController = TextEditingController();
+    _regController = TextEditingController();
+    _repController = TextEditingController();
+
+    _ngoDataFuture = _firestore.collection('ngos').doc(userId).get().then((
+      doc,
+    ) {
+      if (doc.exists) {
+        final data = doc.data()!;
+        _nameController.text = data['ngoName'] ?? '';
+        _emailController.text = data['email'] ?? '';
+        _phoneController.text = data['phone'] ?? '';
+        _addressController.text = data['address'] ?? '';
+        _areasController.text = data['areas'] ?? '';
+        _regController.text = data['ngoRegistration'] ?? '';
+        _repController.text = data['representativeName'] ?? '';
+        _notificationsEnabled = data['notificationsEnabled'] ?? true;
+        _acceptAllDonations = data['acceptAllDonations'] ?? false;
+      }
+      return doc;
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _areasController.dispose();
+    _regController.dispose();
+    _repController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProfileChanges() async {
+    setState(() => _isSaving = true);
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      await _firestore.collection('ngos').doc(user.uid).update({
+        'ngoName': _nameController.text,
+        'phone': _phoneController.text,
+        'address': _addressController.text,
+        'areas': _areasController.text,
+        'ngoRegistration': _regController.text,
+        'representativeName': _repController.text,
+        'notificationsEnabled': _notificationsEnabled,
+        'acceptAllDonations': _acceptAllDonations,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving data: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('HungerZero', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        backgroundColor: Colors.deepOrange,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chat_outlined, color: Colors.white),
-            onPressed: () {},
+    return FutureBuilder<DocumentSnapshot>(
+      future: _ngoDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(body: Center(child: Text('No NGO data found')));
+        }
+
+        final ngoData = snapshot.data!.data() as Map<String, dynamic>;
+        final ngoName = ngoData['ngoName'] ?? 'NGO';
+        final joinDate = ngoData['joinDate'] ?? '2022';
+        final formattedJoinDate = DateFormat(
+          'MMMM yyyy',
+        ).format(joinDate is Timestamp ? joinDate.toDate() : DateTime.now());
+
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: const Text(
+              'HungerZero',
+              style: TextStyle(color: Colors.white),
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.deepOrange,
+            elevation: 0,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.chat_outlined, color: Colors.white),
+                onPressed: () {},
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                ),
+                onPressed: () {},
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {},
+          drawer: _buildAppDrawer(context, ngoName, formattedJoinDate),
+          body: PageView(
+            controller: _pageController,
+            onPageChanged: (index) => setState(() => _currentIndex = index),
+            children: [
+              _buildHomeTab(context, ngoName),
+              _buildBrowseTab(),
+              _buildProfileTab(),
+            ],
           ),
-        ],
-      ),
-      drawer: _buildAppDrawer(context),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) => setState(() => _currentIndex = index),
-        children: [
-          _buildHomeTab(context),
-          _buildBrowseTab(),
-          _buildProfileTab(),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomAppBar(),
+          bottomNavigationBar: _buildBottomAppBar(),
+        );
+      },
     );
   }
 
-  Widget _buildHomeTab(BuildContext context) {
+  Widget _buildHomeTab(BuildContext context, String ngoName) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -86,7 +213,7 @@ class _NGOHomePageState extends State<NGOHomePage> {
                 ),
                 const SizedBox(height: 15),
                 Text(
-                  'Hope Foundation',
+                  ngoName,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -129,10 +256,17 @@ class _NGOHomePageState extends State<NGOHomePage> {
                 ),
                 _buildActionButton(
                   context,
-                  'Vehicles',
-                  Icons.directions_car,
+                  'Active Donations',
+                  Icons.list_alt,
                   Colors.green,
-                  () {},
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => NGOActiveDonationsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildActionButton(
                   context,
@@ -284,36 +418,267 @@ class _NGOHomePageState extends State<NGOHomePage> {
             ),
           ),
 
-          // Donation Listings
+          // Live Donation Listings
           Padding(
             padding: const EdgeInsets.all(16),
+            child: StreamBuilder<QuerySnapshot>(
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('donations')
+                      .where(
+                        'status',
+                        isEqualTo: 'pending',
+                      ) // Optional: show only unclaimed donations
+                      .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Text("No donations available at the moment.");
+                }
+
+                return Column(
+                  children:
+                      snapshot.data!.docs.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        String quantity = data['quantity']?.toString() ?? '';
+                        String unit = data['unit'] ?? '';
+                        String title = data['title'] ?? '';
+                        String food = quantity + ' ' + unit + ' ' + title;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 15),
+                          child: _DonationListingCard(
+                            donationId: doc.id, // 🔥 pass doc.id
+                            restaurantId: data['restaurantId'] ?? '',
+                            restaurantName:
+                                data['restaurantName'] ?? 'Restaurant',
+                            foodItems:
+                                food.trim().isEmpty ? 'No details' : food,
+                            timePosted: _getTimeAgoFromString(data['posted']),
+                            distance: data['distance'] ?? 'Unknown',
+                            imageUrl:
+                                (data['imageURLs'] as List?)?.isNotEmpty == true
+                                    ? data['imageURLs'][0]
+                                    : 'https://via.placeholder.com/150', // fallback
+                          ),
+                        );
+                      }).toList(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTimeAgoFromString(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return 'some time ago';
+    try {
+      final date = DateTime.parse(timeStr);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inMinutes < 1) return 'just now';
+      if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+      if (difference.inHours < 24) return '${difference.inHours} hours ago';
+      return DateFormat('dd MMM').format(date);
+    } catch (e) {
+      return 'some time ago';
+    }
+  }
+
+  Widget _buildProfileTab() {
+    return FutureBuilder<DocumentSnapshot>(
+      future: _ngoDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Center(child: Text('No NGO data found'));
+        }
+
+        final ngoData = snapshot.data!.data() as Map<String, dynamic>;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Profile Header
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const CircleAvatar(
+                        radius: 50,
+                        backgroundImage: NetworkImage(
+                          'https://images.unsplash.com/photo-1606787366850-de6330128bfc?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        ngoData['ngoName'] ?? 'NGO',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ngoData['address'] ?? 'No address',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // NGO Information Section
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info, color: Colors.deepOrange),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Organization Details',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepOrange,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildProfileItem(
+                        Icons.people,
+                        'NGO Name',
+                        ngoData['ngoName'] ?? 'Not specified',
+                      ),
+                      _buildProfileItem(
+                        Icons.person,
+                        'Representative',
+                        ngoData['representativeName'] ?? 'Not specified',
+                      ),
+                      _buildProfileItem(
+                        Icons.email,
+                        'Email',
+                        ngoData['email'] ?? 'Not specified',
+                      ),
+                      _buildProfileItem(
+                        Icons.phone,
+                        'Phone',
+                        ngoData['phone'] ?? 'Not specified',
+                      ),
+                      _buildProfileItem(
+                        Icons.location_on,
+                        'Address',
+                        ngoData['address'] ?? 'Not specified',
+                        maxLines: 2,
+                      ),
+                      _buildProfileItem(
+                        Icons.map,
+                        'Service Areas',
+                        ngoData['areas'] ?? 'Not specified',
+                      ),
+                      _buildProfileItem(
+                        Icons.assignment,
+                        'Registration',
+                        ngoData['ngoRegistration'] ?? 'Not specified',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Edit Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NGOSettingsScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'EDIT PROFILE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileItem(
+    IconData icon,
+    String label,
+    String value, {
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.deepOrange),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
-              children: const [
-                _DonationListingCard(
-                  restaurantName: "Bistro Central",
-                  foodItems: "15 meals, 3 desserts",
-                  timePosted: "10 min ago",
-                  distance: "0.8 km",
-                  imageUrl:
-                      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
-                SizedBox(height: 15),
-                _DonationListingCard(
-                  restaurantName: "Pizza Heaven",
-                  foodItems: "12 large pizzas",
-                  timePosted: "25 min ago",
-                  distance: "1.5 km",
-                  imageUrl:
-                      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
-                ),
-                SizedBox(height: 15),
-                _DonationListingCard(
-                  restaurantName: "Green Leaf Cafe",
-                  foodItems: "20 vegan meals",
-                  timePosted: "1 hour ago",
-                  distance: "2.3 km",
-                  imageUrl:
-                      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: maxLines,
+                  overflow: maxLines > 1 ? TextOverflow.ellipsis : null,
                 ),
               ],
             ),
@@ -323,29 +688,13 @@ class _NGOHomePageState extends State<NGOHomePage> {
     );
   }
 
-  Widget _buildProfileTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.person,
-            size: 60,
-            color: Colors.deepOrange.withOpacity(0.3),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'NGO Profile',
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ... [Keep all your existing helper methods (_buildFilterChip, _buildActionButton,
+  // _buildStatItem, _buildActivityItem, _buildAppDrawer, _buildDrawerItem,
+  // _buildBottomAppBar) exactly as they are in your original code]
+
+  // ... [Keep all your existing widget classes (_UrgentDonationCard, _DonationListingCard)]
+
+  // ... [Keep all your existing widget class implementations at the bottom of the file]
 
   Widget _buildFilterChip(String label, bool selected) {
     return Padding(
@@ -464,7 +813,11 @@ class _NGOHomePageState extends State<NGOHomePage> {
     );
   }
 
-  Widget _buildAppDrawer(BuildContext context) {
+  Widget _buildAppDrawer(
+    BuildContext context,
+    String ngoName,
+    String joinDate,
+  ) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -494,16 +847,16 @@ class _NGOHomePageState extends State<NGOHomePage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Hope Foundation',
-                  style: TextStyle(
+                Text(
+                  ngoName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'Partner since June 2022',
+                  'Partner since $joinDate',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 12,
@@ -769,6 +1122,8 @@ class _UrgentDonationCard extends StatelessWidget {
 
 class _DonationListingCard extends StatelessWidget {
   final String restaurantName;
+  final String restaurantId;
+  final String donationId;
   final String foodItems;
   final String timePosted;
   final String distance;
@@ -776,6 +1131,8 @@ class _DonationListingCard extends StatelessWidget {
 
   const _DonationListingCard({
     required this.restaurantName,
+    required this.restaurantId,
+    required this.donationId,
     required this.foodItems,
     required this.timePosted,
     required this.distance,
@@ -789,13 +1146,24 @@ class _DonationListingCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
         onTap: () {
-          // Handle card tap
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => NGODonationDetailsPage(
+                    donationId: donationId,
+                    restaurantId: restaurantId,
+                    imageUrl: imageUrl,
+                  ),
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Restaurant Image
+              // Restaurant Image with error fallback
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.network(
@@ -803,11 +1171,22 @@ class _DonationListingCard extends StatelessWidget {
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[300],
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.grey,
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
 
-              // Details
+              // Expanded column to avoid overflow
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,16 +1197,24 @@ class _DonationListingCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       foodItems,
                       style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey),
+                        const Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           timePosted,
@@ -837,13 +1224,21 @@ class _DonationListingCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Icon(Icons.location_on, size: 16, color: Colors.grey),
+                        const Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 4),
-                        Text(
-                          distance,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
+                        Expanded(
+                          child: Text(
+                            distance,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -852,25 +1247,8 @@ class _DonationListingCard extends StatelessWidget {
                 ),
               ),
 
-              // Action Button
-              IconButton(
-                icon: const Icon(Icons.chevron_right, color: Colors.deepOrange),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => NGODonationDetailsPage(
-                            restaurantName: restaurantName,
-                            foodItems: foodItems,
-                            timePosted: timePosted,
-                            distance: distance,
-                            imageUrl: imageUrl,
-                          ),
-                    ),
-                  );
-                },
-              ),
+              // Arrow icon
+              Icon(Icons.chevron_right, color: Colors.deepOrange),
             ],
           ),
         ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({Key? key}) : super(key: key);
@@ -60,10 +62,49 @@ class _SignupPageState extends State<SignupPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Simulate signup process
-      await Future.delayed(const Duration(seconds: 2));
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
 
-      _showSuccessMessage('${_selectedRole} account created successfully!');
+      final uid = credential.user!.uid;
+      final role = _selectedRole;
+
+      final data = {
+        'uid': uid,
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'address': _addressController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      if (role == 'Restaurant') {
+        data.addAll({
+          'role': 'restaurant',
+          'restaurantName': _restaurantNameController.text.trim(),
+          'ownerName': _ownerNameController.text.trim(),
+          'fssai': _fssaiController.text.trim(),
+          'hours': _operatingHoursController.text.trim(),
+        });
+
+        await FirebaseFirestore.instance
+            .collection('restaurants')
+            .doc(uid)
+            .set(data);
+      } else {
+        data.addAll({
+          'role': 'ngo',
+          'ngoName': _ngoNameController.text.trim(),
+          'representativeName': _representativeNameController.text.trim(),
+          'ngoRegistration': _ngoRegController.text.trim(),
+          'areas': _serviceAreasController.text.trim(),
+        });
+
+        await FirebaseFirestore.instance.collection('ngos').doc(uid).set(data);
+      }
+
+      _showSuccessMessage('$role account created successfully!');
       if (mounted) Navigator.pop(context);
     } catch (e) {
       _showErrorMessage('Signup failed: ${e.toString()}');

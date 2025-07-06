@@ -11,6 +11,8 @@ import 'package:hungerzero/notification.dart';
 import 'package:hungerzero/previous.dart';
 import 'package:hungerzero/settings_r.dart';
 import 'package:hungerzero/tax.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class RestaurantHomePage extends StatefulWidget {
@@ -23,54 +25,96 @@ class RestaurantHomePage extends StatefulWidget {
 class _RestaurantHomePageState extends State<RestaurantHomePage> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
+  late Future<DocumentSnapshot> _restaurantDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    _restaurantDataFuture =
+        FirebaseFirestore.instance.collection('restaurants').doc(userId).get();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('HungerZero', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        backgroundColor: Colors.deepOrange,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+    return FutureBuilder<DocumentSnapshot>(
+      future: _restaurantDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(
+            body: Center(child: Text('No restaurant data found')),
+          );
+        }
+
+        final restaurantData = snapshot.data!.data() as Map<String, dynamic>;
+        final restaurantName = restaurantData['restaurantName'] ?? 'Restaurant';
+        final joinDate = restaurantData['joinDate'] ?? '2023';
+        final formattedJoinDate = DateFormat(
+          'MMMM yyyy',
+        ).format(joinDate is Timestamp ? joinDate.toDate() : DateTime.now());
+
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: const Text(
+              'HungerZero',
+              style: TextStyle(color: Colors.white),
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.deepOrange,
+            elevation: 0,
+            actions: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NotificationsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          drawer: _buildAppDrawer(context, restaurantName, formattedJoinDate),
+          body: PageView(
+            controller: _pageController,
+            onPageChanged: (index) => setState(() => _currentIndex = index),
+            children: [
+              _buildHomeTab(context, restaurantName),
+              _buildBrowseTab(),
+              _buildProfileTab(),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: Colors.deepOrange,
+            child: const Icon(Icons.add, color: Colors.white, size: 30),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                MaterialPageRoute(builder: (context) => DonationFormStepper()),
               );
             },
           ),
-        ],
-      ),
-      drawer: _buildAppDrawer(context),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) => setState(() => _currentIndex = index),
-        children: [
-          _buildHomeTab(context),
-          _buildBrowseTab(),
-          _buildProfileTab(),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepOrange,
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => DonationFormStepper()),
-          );
-        },
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomAppBar(),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
+          bottomNavigationBar: _buildBottomAppBar(),
+        );
+      },
     );
   }
 
-  Widget _buildHomeTab(BuildContext context) {
+  Widget _buildHomeTab(BuildContext context, String restaurantName) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -102,7 +146,7 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
                 ),
                 const SizedBox(height: 15),
                 Text(
-                  'Welcome back, Bistro Central!',
+                  'Welcome back, $restaurantName!',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -215,12 +259,7 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
 
           // Recent Activity
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              20,
-              16,
-              80,
-            ), // Added bottom padding to prevent overflow
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -395,22 +434,179 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
   }
 
   Widget _buildProfileTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.person,
-            size: 60,
-            color: Colors.deepOrange.withOpacity(0.3),
+    return FutureBuilder<DocumentSnapshot>(
+      future: _restaurantDataFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Center(child: Text('No restaurant data found'));
+        }
+
+        final restaurantData = snapshot.data!.data() as Map<String, dynamic>;
+        final createdAt = restaurantData['createdAt'] as Timestamp;
+        final formattedDate = DateFormat(
+          'MMMM d, y',
+        ).format(createdAt.toDate());
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Profile Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.deepOrange,
+                  borderRadius: BorderRadius.circular(20),
+                  image: DecorationImage(
+                    image: const NetworkImage(
+                      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+                    ),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.3),
+                      BlendMode.darken,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const CircleAvatar(
+                      radius: 50,
+                      backgroundImage: NetworkImage(
+                        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      restaurantData['restaurantName'] ?? 'Restaurant',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Member since $formattedDate',
+                      style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Restaurant Details Card
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                elevation: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _buildProfileDetailItem(
+                        Icons.person,
+                        'Owner',
+                        restaurantData['ownerName'] ?? 'Not specified',
+                      ),
+                      _buildProfileDetailItem(
+                        Icons.email,
+                        'Email',
+                        restaurantData['email'] ?? 'Not specified',
+                      ),
+                      _buildProfileDetailItem(
+                        Icons.phone,
+                        'Phone',
+                        restaurantData['phone'] ?? 'Not specified',
+                      ),
+                      _buildProfileDetailItem(
+                        Icons.location_on,
+                        'Address',
+                        restaurantData['address'] ?? 'Not specified',
+                      ),
+                      _buildProfileDetailItem(
+                        Icons.access_time,
+                        'Business Hours',
+                        restaurantData['hours'] ?? 'Not specified',
+                      ),
+                      _buildProfileDetailItem(
+                        Icons.assignment,
+                        'FSSAI License',
+                        restaurantData['fssai'] ?? 'Not specified',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Edit Profile Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    // Navigate to edit profile screen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RestaurantSettingsScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Edit Profile',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Profile Settings',
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.bold,
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileDetailItem(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.deepOrange, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -418,7 +614,11 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
     );
   }
 
-  Widget _buildAppDrawer(BuildContext context) {
+  Widget _buildAppDrawer(
+    BuildContext context,
+    String restaurantName,
+    String joinDate,
+  ) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -448,16 +648,16 @@ class _RestaurantHomePageState extends State<RestaurantHomePage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Bistro Central',
-                  style: TextStyle(
+                Text(
+                  restaurantName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'Partner since May 2023',
+                  'Partner since $joinDate',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 12,

@@ -1,44 +1,84 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:hungerzero/request.dart';
+import 'package:hungerzero/request.dart'; // Make sure this has NGORequestDetailScreen
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final restaurantId = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Donation Requests'),
         backgroundColor: Colors.deepOrange,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildRequestItem(
-            context,
-            'Hope Foundation',
-            '15 meals',
-            '10 min ago',
-            'https://images.unsplash.com/photo-1606787366850-de6330128bfc?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-            'Urgent',
-          ),
-          _buildRequestItem(
-            context,
-            'Community Kitchen',
-            '20 vegetarian meals',
-            '25 min ago',
-            'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-            'Regular',
-          ),
-          _buildRequestItem(
-            context,
-            'Street Angels',
-            'Bread and pastries',
-            '1 hour ago',
-            'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-            'Scheduled',
-          ),
-        ],
+      body: StreamBuilder<QuerySnapshot>(
+        stream:
+            FirebaseFirestore.instance
+                .collection('requests')
+                .where(
+                  'restaurantId',
+                  isEqualTo: FirebaseAuth.instance.currentUser?.uid,
+                )
+                .where('status', isEqualTo: 'pending')
+                //.orderBy('createdAt', descending: true)
+                .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No requests yet.'));
+          }
+
+          final requests = snapshot.data!.docs;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final data = requests[index].data() as Map<String, dynamic>;
+
+              return FutureBuilder<DocumentSnapshot>(
+                future:
+                    FirebaseFirestore.instance
+                        .collection('ngos')
+                        .doc(data['ngoId'])
+                        .get(),
+                builder: (context, ngoSnapshot) {
+                  if (!ngoSnapshot.hasData) {
+                    return const SizedBox(); // or shimmer
+                  }
+
+                  final ngoData =
+                      ngoSnapshot.data!.data() as Map<String, dynamic>?;
+
+                  final ngoName = ngoData?['ngoName'] ?? 'Unknown NGO';
+                  final ngoImage =
+                      ngoData?['imageUrl'] ??
+                      'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png';
+                  final requestText = 'Requested Pickup';
+                  final type = data['isUrgent'] == true ? 'Urgent' : 'Regular';
+                  final timeAgo = _getTimeAgo(data['createdAt']);
+
+                  return _buildRequestItem(
+                    context,
+                    ngoName,
+                    requestText,
+                    timeAgo,
+                    ngoImage,
+                    type,
+                    requestId: requests[index].id,
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -49,8 +89,9 @@ class NotificationsScreen extends StatelessWidget {
     String request,
     String time,
     String imageUrl,
-    String type,
-  ) {
+    String type, {
+    required String requestId,
+  }) {
     Color typeColor = Colors.grey;
     if (type == 'Urgent') typeColor = Colors.red;
     if (type == 'Regular') typeColor = Colors.blue;
@@ -65,13 +106,7 @@ class NotificationsScreen extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder:
-                  (context) => NGORequestDetailScreen(
-                    ngoName: ngoName,
-                    request: request,
-                    time: time,
-                    imageUrl: imageUrl,
-                    type: type,
-                  ),
+                  (context) => NGORequestDetailScreen(requestId: requestId),
             ),
           );
         },
@@ -151,5 +186,17 @@ class NotificationsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getTimeAgo(Timestamp? timestamp) {
+    if (timestamp == null) return 'unknown';
+    final now = DateTime.now();
+    final time = timestamp.toDate();
+    final difference = now.difference(time);
+
+    if (difference.inSeconds < 60) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+    if (difference.inHours < 24) return '${difference.inHours} hr ago';
+    return '${difference.inDays} days ago';
   }
 }

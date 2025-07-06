@@ -1,17 +1,24 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:hungerzero/ngo.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class NGORequestFormScreen extends StatefulWidget {
   final String restaurantName;
   final String foodItems;
   final String imageUrl;
+  final String donationId;
+  final String restaurantId;
 
   const NGORequestFormScreen({
     Key? key,
     required this.restaurantName,
     required this.foodItems,
     required this.imageUrl,
+    required this.donationId,
+    required this.restaurantId,
   }) : super(key: key);
 
   @override
@@ -69,6 +76,9 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
   }
 
   Future<void> _submitForm() async {
+    final ngoId = FirebaseAuth.instance.currentUser?.uid;
+    final timestamp = Timestamp.now();
+
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVehicle == null) {
       _showErrorMessage('Please select a vehicle type');
@@ -78,10 +88,43 @@ class _NGORequestFormScreenState extends State<NGORequestFormScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      // Fetch the pickup time from the donation document
+      final donationDoc =
+          await FirebaseFirestore.instance
+              .collection('donations')
+              .doc(widget.donationId)
+              .get();
 
-      // If successful, show confirmation
+      if (!donationDoc.exists) {
+        _showErrorMessage('Donation not found.');
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      final pickupTime = donationDoc.data()?['pickup'];
+      if (pickupTime == null) {
+        _showErrorMessage('Pickup time not found in donation.');
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // Create a new request document
+      final requestRef =
+          FirebaseFirestore.instance.collection('requests').doc();
+
+      await requestRef.set({
+        'requestId': requestRef.id,
+        'donationId': widget.donationId,
+        'restaurantId': widget.restaurantId,
+        'ngoId': ngoId,
+        'pickupTime': pickupTime,
+        'status': 'pending',
+        'createdAt': timestamp,
+        'isUrgent': false,
+        'pickupConfirmedByNGO': false,
+        'pickupConfirmedByRestaurant': false,
+      });
+
       _showSuccessDialog(context);
     } catch (e) {
       _showErrorMessage('Submission failed: ${e.toString()}');

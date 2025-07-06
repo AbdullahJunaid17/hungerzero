@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hungerzero/ngo.dart';
 import 'package:hungerzero/signup.dart';
 import 'restaurant.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -13,14 +14,14 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   String _selectedRole = 'Restaurant';
-  final TextEditingController _userIdController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _userIdController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -31,11 +32,15 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Simulate login process
-      await Future.delayed(const Duration(seconds: 1));
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      _showSuccessMessage('Login successful!');
 
       // Navigate based on role
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder:
@@ -45,12 +50,12 @@ class _LoginPageState extends State<LoginPage> {
                       : const NGOHomePage(),
         ),
       );
+    } on FirebaseAuthException catch (e) {
+      _showErrorMessage(e.message ?? 'Login failed. Please try again.');
     } catch (e) {
-      _showErrorMessage('Login failed. Please try again.');
+      _showErrorMessage('Unexpected error. Try again.');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -136,7 +141,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Connecting surplus with need',
+                    'Connecting surplus to need',
                     style: TextStyle(
                       color: Colors.orange.shade700,
                       fontSize: 16,
@@ -209,12 +214,14 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: 20),
 
                           // Username field
+                          // Email field
                           TextFormField(
-                            controller: _userIdController,
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              labelText: 'Username',
+                              labelText: 'Email',
                               prefixIcon: Icon(
-                                Icons.person_outline,
+                                Icons.email_outlined,
                                 color: Colors.deepOrange,
                               ),
                               border: OutlineInputBorder(
@@ -229,17 +236,19 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your username';
+                                return 'Please enter your email';
                               }
-                              if (value.length < 4) {
-                                return 'Username must be at least 4 characters';
+                              if (!RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                              ).hasMatch(value)) {
+                                return 'Please enter a valid email';
                               }
                               return null;
                             },
                             enabled: !_isLoading,
                           ),
-                          const SizedBox(height: 20),
 
+                          const SizedBox(height: 10),
                           // Password field
                           TextFormField(
                             controller: _passwordController,
@@ -299,6 +308,7 @@ class _LoginPageState extends State<LoginPage> {
                               onPressed: _isLoading ? null : _handleLogin,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.deepOrange,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
